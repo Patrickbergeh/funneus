@@ -73,6 +73,7 @@ export const CATALOG: CatalogItem[] = [
   // ---------- Tags (etiquetas de CRM) ----------
   { key: "tag_recuperacao", label: "Recuperação", family: "tag", color: "#f59e0b", category: "Tags", glyph: TagGlyph },
   { key: "tag_acesso", label: "Acesso", family: "tag", color: "#10b981", category: "Tags", glyph: TagGlyph },
+  { key: "tag_aquecimento", label: "Aquecimento", family: "tag", color: "#fb7185", category: "Tags", glyph: TagGlyph },
 
   // ---------- Status (diamond / losango nodes) ----------
   { key: "lead", label: "Lead", family: "diamond", color: "#eab308", category: "Status", glyph: UserIcon },

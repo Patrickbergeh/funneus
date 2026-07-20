@@ -24,9 +24,10 @@ import {
   ManyChatIcon,
   AdIcon,
   TextIcon,
+  TagGlyph,
 } from "./icons";
 
-export type Family = "page" | "icon" | "diamond" | "time" | "text";
+export type Family = "page" | "icon" | "diamond" | "time" | "text" | "tag";
 
 export type CatalogItem = {
   key: string;
@@ -34,7 +35,7 @@ export type CatalogItem = {
   family: Family;
   color: string; // circle/CTA background (may be a CSS gradient)
   solid?: string; // solid fallback (minimap) when color is a gradient
-  category: "Páginas" | "Tráfego" | "Comunicação" | "Ferramentas" | "Status" | "Time";
+  category: "Páginas" | "Tráfego" | "Comunicação" | "Ferramentas" | "Status" | "Tags" | "Time";
   glyph: (p: { size?: number }) => React.JSX.Element;
   cta?: string; // bottom badge text for page nodes
 };
@@ -69,6 +70,10 @@ export const CATALOG: CatalogItem[] = [
   { key: "time", label: "Espera", family: "time", color: "#0ea5e9", category: "Ferramentas", glyph: ClockIcon },
   { key: "texto", label: "Texto", family: "text", color: "#334155", category: "Ferramentas", glyph: TextIcon },
 
+  // ---------- Tags (etiquetas de CRM) ----------
+  { key: "tag_recuperacao", label: "Recuperação", family: "tag", color: "#f59e0b", category: "Tags", glyph: TagGlyph },
+  { key: "tag_acesso", label: "Acesso", family: "tag", color: "#10b981", category: "Tags", glyph: TagGlyph },
+
   // ---------- Status (diamond / losango nodes) ----------
   { key: "lead", label: "Lead", family: "diamond", color: "#eab308", category: "Status", glyph: UserIcon },
   { key: "aprovada", label: "Compra Aprovada", family: "diamond", color: "#22c55e", category: "Status", glyph: DollarGlyph },
@@ -95,5 +100,6 @@ export const CATEGORIES: CatalogItem["category"][] = [
   "Comunicação",
   "Ferramentas",
   "Status",
+  "Tags",
   "Time",
 ];

@@ -743,6 +743,25 @@ input {
   display: grid;
   place-items: center;
 }
+.pop-swatch.pop-tag {
+  position: relative;
+  width: 58px;
+  height: 40px;
+  border-radius: 0;
+  color: #fff;
+  clip-path: polygon(0 50%, 14px 0, 100% 0, 100% 100%, 14px 100%);
+  padding-left: 10px;
+}
+.pop-tag-hole {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+}
 .pop-name {
   font-size: 11px;
   font-weight: 500;
@@ -795,6 +814,39 @@ input {
   outline: 2px solid var(--lime-600);
   outline-offset: 2px;
 }
+/* Tag node — CRM label shape (pointed left with a hole) */
+.tag-node {
+  position: relative;
+  display: inline-block;
+}
+.tag-shape {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  min-width: 78px;
+  padding: 0 16px 0 24px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  clip-path: polygon(0 50%, 16px 0, 100% 0, 100% 100%, 16px 100%);
+}
+.tag-hole {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+}
+.tag-node.sel .tag-shape {
+  filter: drop-shadow(0 0 2px var(--lime-600)) drop-shadow(0 0 1px var(--lime-600));
+}
+
 .node-label {
   font-size: 12.5px;
   font-weight: 500;

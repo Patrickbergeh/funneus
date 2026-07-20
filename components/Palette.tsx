@@ -79,6 +79,7 @@ export default function Palette({
           const Glyph = item.glyph;
           const round = item.family === "icon";
           const diamond = item.family === "diamond";
+          const tag = item.family === "tag";
           return (
             <button
               key={item.key}
@@ -86,7 +87,12 @@ export default function Palette({
               onClick={() => onPick(item)}
               title={item.label}
             >
-              {diamond ? (
+              {tag ? (
+                <div className="pop-swatch pop-tag" style={{ background: item.color }}>
+                  <span className="pop-tag-hole" />
+                  <Glyph size={18} />
+                </div>
+              ) : diamond ? (
                 <div className="pop-swatch dia">
                   <span className="pop-dia" style={{ background: item.color }} />
                   <span className="pop-dia-glyph">

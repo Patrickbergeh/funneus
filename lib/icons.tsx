@@ -184,6 +184,18 @@ export const CheckoutGlyph = ({ size = 40 }: IconProps) => (
   </svg>
 );
 
+export const TagGlyph = ({ size = 24 }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+    <path
+      d="M3.5 12.8V5a1.5 1.5 0 0 1 1.5-1.5h7.8a1.5 1.5 0 0 1 1.06.44l6.4 6.4a1.5 1.5 0 0 1 0 2.12l-6.6 6.6a1.5 1.5 0 0 1-2.12 0L3.94 13.86a1.5 1.5 0 0 1-.44-1.06Z"
+      stroke="#fff"
+      strokeWidth="1.8"
+      strokeLinejoin="round"
+    />
+    <circle cx="8" cy="8" r="1.7" fill="#fff" />
+  </svg>
+);
+
 export const ThanksGlyph = ({ size = 40 }: IconProps) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
     <circle cx="20" cy="19" r="12" fill="#dbe2ec" />

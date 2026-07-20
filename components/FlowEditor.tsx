@@ -33,6 +33,7 @@ import DiamondNode from "./nodes/DiamondNode";
 import TimeNode from "./nodes/TimeNode";
 import ContainerNode from "./nodes/ContainerNode";
 import TextNode from "./nodes/TextNode";
+import TagNode from "./nodes/TagNode";
 import PlaceholderNode from "./nodes/PlaceholderNode";
 import ActionEdge, { cornerStraight } from "./edges/ActionEdge";
 import Palette from "./Palette";
@@ -52,6 +53,7 @@ const nodeTypes: NodeTypes = {
   time: TimeNode,
   container: ContainerNode,
   text: TextNode,
+  tag: TagNode,
   placeholder: PlaceholderNode,
 };
 

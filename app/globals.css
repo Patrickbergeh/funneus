@@ -1646,6 +1646,22 @@ input {
   height: 3px;
   border-radius: 2px;
 }
+.nt-size span {
+  color: #fff;
+  line-height: 1;
+}
+.nt-btn.nt-size:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.nt-size-val {
+  min-width: 20px;
+  text-align: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 .cn-text-view {
   white-space: pre-wrap;
   word-break: break-word;

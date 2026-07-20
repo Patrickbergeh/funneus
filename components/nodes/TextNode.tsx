@@ -11,8 +11,14 @@ export default function TextNode({ id, data, selected }: NodeProps) {
   const readOnly = useReadOnly();
   const text = (data as { text?: string }).text ?? "";
   const color = (data as { color?: string }).color ?? "#1a1f26";
+  const size = (data as { size?: number }).size ?? 19;
   const [editing, setEditing] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  const MIN = 12;
+  const MAX = 56;
+  const step = (d: number) =>
+    updateNodeData(id, { size: Math.max(MIN, Math.min(MAX, size + d)) });
 
   // leaving / deselecting the node closes the color dropdown
   useEffect(() => {
@@ -39,6 +45,24 @@ export default function TextNode({ id, data, selected }: NodeProps) {
           </button>
           <span className="nt-sep" />
           <button
+            className="nt-btn nt-size"
+            title="Diminuir tamanho"
+            onClick={() => step(-2)}
+            disabled={size <= MIN}
+          >
+            <span style={{ fontSize: 11, fontWeight: 700 }}>A</span>
+          </button>
+          <span className="nt-size-val">{size}</span>
+          <button
+            className="nt-btn nt-size"
+            title="Aumentar tamanho"
+            onClick={() => step(2)}
+            disabled={size >= MAX}
+          >
+            <span style={{ fontSize: 17, fontWeight: 700 }}>A</span>
+          </button>
+          <span className="nt-sep" />
+          <button
             className="nt-btn danger"
             title="Apagar"
             onClick={() => setNodes((nds) => nds.filter((n) => n.id !== id))}
@@ -59,12 +83,12 @@ export default function TextNode({ id, data, selected }: NodeProps) {
           autoFocus
           value={text}
           placeholder="Escreva…"
-          style={{ color }}
+          style={{ color, fontSize: size }}
           onChange={(e) => updateNodeData(id, { text: e.target.value })}
           onBlur={() => setEditing(false)}
         />
       ) : (
-        <div className="text-view" style={{ color }}>
+        <div className="text-view" style={{ color, fontSize: size }}>
           {text || "Texto"}
         </div>
       )}

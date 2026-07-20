@@ -4,9 +4,11 @@ import { Handle, Position, useReactFlow, type NodeProps } from "@xyflow/react";
 import { CATALOG_MAP } from "@/lib/catalog";
 import { ClockIcon } from "@/lib/icons";
 import NodeActions from "./NodeActions";
+import { useReadOnly } from "@/lib/editorMode";
 
 export default function TimeNode({ id, data, selected }: NodeProps) {
   const { updateNodeData } = useReactFlow();
+  const readOnly = useReadOnly();
   const item = CATALOG_MAP[(data as { key: string }).key];
   const label = (data as { label?: string }).label ?? "";
 
@@ -35,6 +37,7 @@ export default function TimeNode({ id, data, selected }: NodeProps) {
         className="time-label nodrag"
         value={label}
         placeholder="Escreva o tempo…"
+        readOnly={readOnly}
         onChange={(e) => updateNodeData(id, { label: e.target.value })}
       />
     </div>

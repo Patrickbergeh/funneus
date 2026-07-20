@@ -38,9 +38,12 @@ import ActionEdge, { cornerStraight } from "./edges/ActionEdge";
 import Palette from "./Palette";
 import ShareModal from "./ShareModal";
 import { CATALOG_MAP, type CatalogItem } from "@/lib/catalog";
-import { getEdgeStyle, getFunnel, renameFunnel, saveFlow, type Funnel } from "@/lib/store";
+import { getEdgeStyle, getFunnel, getShares, renameFunnel, saveFlow, type Funnel } from "@/lib/store";
 import { computeGuides, type Guides } from "@/lib/helperLines";
 import { BackIcon, PlusIcon } from "@/lib/icons";
+import { supabase } from "@/lib/supabase";
+import { ReadOnlyContext } from "@/lib/editorMode";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 const nodeTypes: NodeTypes = {
   icon: IconNode,
@@ -199,7 +202,7 @@ function GuidesOverlay({ guides }: { guides: Guides | null }) {
   );
 }
 
-function Editor({ funnel }: { funnel: Funnel }) {
+function Editor({ funnel, readOnly }: { funnel: Funnel; readOnly: boolean }) {
   const router = useRouter();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
@@ -259,28 +262,81 @@ function Editor({ funnel }: { funnel: Funnel }) {
 
   const rf = useReactFlow();
 
-  // Debounced autosave whenever nodes/edges change
+  // ---- Realtime collaboration (Supabase broadcast) ----
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const applyingRemote = useRef(false); // true while applying a peer's update
+  const draggingRef = useRef(false); // ignore incoming while we drag locally
+  const lastBroadcast = useRef(0);
+  const trailingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const channel = supabase.channel(`funnel:${funnel.id}`, {
+      config: { broadcast: { self: false } },
+    });
+    channel.on("broadcast", { event: "sync" }, (msg) => {
+      const p = msg.payload as { nodes?: Node[]; edges?: Edge[]; name?: string };
+      // Don't let an incoming update fight a drag we're in the middle of.
+      if (draggingRef.current) return;
+      applyingRemote.current = true;
+      if (p.nodes) setNodes(p.nodes);
+      if (p.edges) setEdges(p.edges);
+      if (typeof p.name === "string") setName(p.name);
+    });
+    channel.subscribe();
+    channelRef.current = channel;
+    return () => {
+      channelRef.current = null;
+      if (trailingTimer.current) clearTimeout(trailingTimer.current);
+      supabase.removeChannel(channel);
+    };
+  }, [funnel.id, setNodes, setEdges]);
+
+  // Broadcast (throttled ~90ms) + debounced DB autosave on every local change.
   const firstRender = useRef(true);
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false;
       return;
     }
+    // A change that came from a peer must not be echoed back or re-saved.
+    if (applyingRemote.current) {
+      applyingRemote.current = false;
+      return;
+    }
+    // Viewers never write or broadcast.
+    if (readOnly) return;
+
+    // never persist the temporary placeholder node / its link
+    const phIds = new Set(
+      nodes.filter((n) => n.type === "placeholder").map((n) => n.id)
+    );
+    const cleanNodes = nodes.filter((n) => n.type !== "placeholder");
+    const cleanEdges = edges.filter(
+      (e) => !phIds.has(e.target) && !phIds.has(e.source)
+    );
+
+    // Live broadcast to other people on this funnel.
+    const send = () => {
+      lastBroadcast.current = Date.now();
+      channelRef.current?.send({
+        type: "broadcast",
+        event: "sync",
+        payload: { nodes: cleanNodes, edges: cleanEdges, name },
+      });
+    };
+    const now = Date.now();
+    if (trailingTimer.current) clearTimeout(trailingTimer.current);
+    if (now - lastBroadcast.current >= 90) send();
+    else trailingTimer.current = setTimeout(send, 90 - (now - lastBroadcast.current));
+
+    // Debounced persistence.
     setSaving(true);
     const t = setTimeout(() => {
-      // never persist the temporary placeholder node / its link
-      const phIds = new Set(
-        nodes.filter((n) => n.type === "placeholder").map((n) => n.id)
-      );
-      const cleanNodes = nodes.filter((n) => n.type !== "placeholder");
-      const cleanEdges = edges.filter(
-        (e) => !phIds.has(e.target) && !phIds.has(e.source)
-      );
       saveFlow(funnel.id, cleanNodes, cleanEdges);
       setSaving(false);
     }, 500);
     return () => clearTimeout(t);
-  }, [nodes, edges, funnel.id]);
+  }, [nodes, edges, name, funnel.id, readOnly]);
 
   const onConnect = useCallback(
     (conn: Connection) => {
@@ -418,7 +474,7 @@ function Editor({ funnel }: { funnel: Funnel }) {
   // (Ctrl is avoided — on macOS Ctrl+click triggers the right-click menu.)
   useEffect(() => {
     const wrap = wrapperRef.current;
-    if (!wrap) return;
+    if (!wrap || readOnly) return;
     const onDown = (e: MouseEvent) => {
       if (!e.altKey || e.button !== 0) return;
       const target = e.target as HTMLElement;
@@ -462,7 +518,7 @@ function Editor({ funnel }: { funnel: Funnel }) {
     };
     wrap.addEventListener("mousedown", onDown, true);
     return () => wrap.removeEventListener("mousedown", onDown, true);
-  }, [rf, setNodes]);
+  }, [rf, setNodes, readOnly]);
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -472,6 +528,7 @@ function Editor({ funnel }: { funnel: Funnel }) {
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
+      if (readOnly) return;
       const key = e.dataTransfer.getData("application/funnel-node");
       const item = CATALOG_MAP[key];
       if (!item || !rfInstance) return;
@@ -485,7 +542,7 @@ function Editor({ funnel }: { funnel: Funnel }) {
       };
       setNodes((nds) => nds.concat(newNode));
     },
-    [rf, rfInstance, setNodes]
+    [rf, rfInstance, setNodes, readOnly]
   );
 
   function commitName(v: string) {
@@ -500,6 +557,7 @@ function Editor({ funnel }: { funnel: Funnel }) {
   }, []);
 
   return (
+   <ReadOnlyContext.Provider value={readOnly}>
     <div className="editor">
       <header className="topbar">
         <button
@@ -512,22 +570,33 @@ function Editor({ funnel }: { funnel: Funnel }) {
         <input
           className="name-input"
           value={name}
+          readOnly={readOnly}
           onChange={(e) => setName(e.target.value)}
-          onBlur={(e) => commitName(e.target.value)}
+          onBlur={(e) => !readOnly && commitName(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") (e.target as HTMLInputElement).blur();
           }}
         />
         <div className="spacer" />
-        <button className="share-btn" onClick={() => setShareOpen(true)}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <circle cx="18" cy="5" r="2.4" stroke="currentColor" strokeWidth="1.9" />
-            <circle cx="6" cy="12" r="2.4" stroke="currentColor" strokeWidth="1.9" />
-            <circle cx="18" cy="19" r="2.4" stroke="currentColor" strokeWidth="1.9" />
-            <path d="m8.1 10.9 7.8-4.5M8.1 13.1l7.8 4.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-          </svg>
-          Compartilhar
-        </button>
+        {readOnly ? (
+          <span className="view-badge">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" stroke="currentColor" strokeWidth="1.9" />
+              <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.9" />
+            </svg>
+            Somente leitura
+          </span>
+        ) : (
+          <button className="share-btn" onClick={() => setShareOpen(true)}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <circle cx="18" cy="5" r="2.4" stroke="currentColor" strokeWidth="1.9" />
+              <circle cx="6" cy="12" r="2.4" stroke="currentColor" strokeWidth="1.9" />
+              <circle cx="18" cy="19" r="2.4" stroke="currentColor" strokeWidth="1.9" />
+              <path d="m8.1 10.9 7.8-4.5M8.1 13.1l7.8 4.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+            </svg>
+            Compartilhar
+          </button>
+        )}
       </header>
 
       {shareOpen && (
@@ -558,13 +627,22 @@ function Editor({ funnel }: { funnel: Funnel }) {
             connectionLineComponent={ConnectionLine}
             connectionRadius={22}
             multiSelectionKeyCode={null}
+            nodesDraggable={!readOnly}
+            nodesConnectable={!readOnly}
+            elementsSelectable={!readOnly}
             fitView
             fitViewOptions={{ padding: 0.4, maxZoom: 1 }}
             minZoom={0.2}
             maxZoom={2}
             proOptions={{ hideAttribution: true }}
-            deleteKeyCode={["Backspace", "Delete"]}
-            onNodeDragStop={() => setGuides(null)}
+            deleteKeyCode={readOnly ? null : ["Backspace", "Delete"]}
+            onNodeDragStart={() => {
+              draggingRef.current = true;
+            }}
+            onNodeDragStop={() => {
+              draggingRef.current = false;
+              setGuides(null);
+            }}
             onPaneClick={() => picker && closePicker()}
           >
             <Background
@@ -584,7 +662,7 @@ function Editor({ funnel }: { funnel: Funnel }) {
             />
           </ReactFlow>
 
-          {nodes.length === 0 && (
+          {nodes.length === 0 && !readOnly && (
             <div className="canvas-add">
               <button onClick={openPickerCenter}>
                 <span className="ring">
@@ -608,7 +686,7 @@ function Editor({ funnel }: { funnel: Funnel }) {
           )}
 
           <Palette
-            open={!!picker}
+            open={!!picker && !readOnly}
             flow={picker ? { x: picker.flowX, y: picker.flowY } : null}
             clear={picker ? picker.pendingId === null : false}
             onClose={closePicker}
@@ -617,18 +695,35 @@ function Editor({ funnel }: { funnel: Funnel }) {
         </div>
       </div>
     </div>
+   </ReadOnlyContext.Provider>
   );
 }
 
 export default function FlowEditor({ funnelId }: { funnelId: string }) {
   const router = useRouter();
   const [funnel, setFunnel] = useState<Funnel | null | undefined>(undefined);
+  const [readOnly, setReadOnly] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    getFunnel(funnelId).then((f) => {
-      if (alive) setFunnel(f);
-    });
+    (async () => {
+      const f = await getFunnel(funnelId);
+      if (!alive) return;
+      setFunnel(f);
+      // A guest opens via ?c=<email>. Their role (view/edit) comes from the DB.
+      // No ?c= → treated as the owner (full edit). Real per-user enforcement
+      // will come with authentication.
+      const guest = new URLSearchParams(window.location.search)
+        .get("c")
+        ?.trim()
+        .toLowerCase();
+      if (guest && f) {
+        const shares = await getShares(funnelId);
+        const mine = shares.find((s) => s.email === guest);
+        // Unknown/revoked guest → safest is read-only.
+        if (alive) setReadOnly((mine?.role ?? "view") === "view");
+      }
+    })();
     return () => {
       alive = false;
     };
@@ -657,10 +752,10 @@ export default function FlowEditor({ funnelId }: { funnelId: string }) {
     }
     return (
       <ReactFlowProvider>
-        <Editor funnel={funnel} />
+        <Editor funnel={funnel} readOnly={readOnly} />
       </ReactFlowProvider>
     );
-  }, [funnel, router]);
+  }, [funnel, router, readOnly]);
 
   return content;
 }

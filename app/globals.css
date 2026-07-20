@@ -381,6 +381,17 @@ input {
 .share-btn:hover {
   background: var(--lime-600);
 }
+.view-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-weight: 500;
+  font-size: 13px;
+  padding: 8px 13px;
+  border-radius: 10px;
+}
 
 /* Share modal */
 .share-modal {

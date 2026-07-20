@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { NodeToolbar, Position, useReactFlow, type NodeProps } from "@xyflow/react";
 import ColorPicker from "../ColorPicker";
 import { TrashIcon } from "@/lib/icons";
+import { useReadOnly } from "@/lib/editorMode";
 
 export default function TextNode({ id, data, selected }: NodeProps) {
   const { updateNodeData, setNodes } = useReactFlow();
+  const readOnly = useReadOnly();
   const text = (data as { text?: string }).text ?? "";
   const color = (data as { color?: string }).color ?? "#1a1f26";
   const [editing, setEditing] = useState(false);
@@ -21,8 +23,11 @@ export default function TextNode({ id, data, selected }: NodeProps) {
   }, [selected]);
 
   return (
-    <div className={`text-node${selected ? " sel" : ""}`} onDoubleClick={() => setEditing(true)}>
-      <NodeToolbar isVisible={!!selected} position={Position.Top} offset={8}>
+    <div
+      className={`text-node${selected ? " sel" : ""}`}
+      onDoubleClick={() => !readOnly && setEditing(true)}
+    >
+      <NodeToolbar isVisible={!!selected && !readOnly} position={Position.Top} offset={8}>
         <div className="node-toolbar">
           <button
             className={`nt-btn nt-tcol${pickerOpen ? " on" : ""}`}
@@ -48,7 +53,7 @@ export default function TextNode({ id, data, selected }: NodeProps) {
         )}
       </NodeToolbar>
 
-      {editing ? (
+      {editing && !readOnly ? (
         <textarea
           className="text-input nodrag"
           autoFocus

@@ -11,9 +11,11 @@ import {
 } from "@xyflow/react";
 import ColorPicker from "../ColorPicker";
 import { TrashIcon } from "@/lib/icons";
+import { useReadOnly } from "@/lib/editorMode";
 
 export default function ContainerNode({ id, data, selected }: NodeProps) {
   const { updateNodeData, setNodes } = useReactFlow();
+  const readOnly = useReadOnly();
   const color = (data as { color?: string }).color ?? "#e9eef5";
   const textColor = (data as { textColor?: string }).textColor ?? "#1a1f26";
   const text = (data as { text?: string }).text ?? "";
@@ -32,12 +34,12 @@ export default function ContainerNode({ id, data, selected }: NodeProps) {
     <div
       className={`container-node${selected ? " sel" : ""}`}
       style={{ background: color }}
-      onDoubleClick={() => setEditing(true)}
+      onDoubleClick={() => !readOnly && setEditing(true)}
     >
       <NodeResizer
         minWidth={140}
         minHeight={90}
-        isVisible={!!selected}
+        isVisible={!!selected && !readOnly}
         lineClassName="cn-line"
         handleClassName="cn-handle"
       />
@@ -47,7 +49,7 @@ export default function ContainerNode({ id, data, selected }: NodeProps) {
       <Handle type="source" id="t" position={Position.Top} className="rf-handle rf-handle-cont" />
       <Handle type="source" id="b" position={Position.Bottom} className="rf-handle rf-handle-cont" />
 
-      <NodeToolbar isVisible={!!selected} position={Position.Top} offset={10}>
+      <NodeToolbar isVisible={!!selected && !readOnly} position={Position.Top} offset={10}>
         <div className="node-toolbar">
           <button
             className={`nt-btn${openPicker === "bg" ? " on" : ""}`}
@@ -86,7 +88,7 @@ export default function ContainerNode({ id, data, selected }: NodeProps) {
         )}
       </NodeToolbar>
 
-      {editing ? (
+      {editing && !readOnly ? (
         <textarea
           className="cn-text nodrag"
           autoFocus

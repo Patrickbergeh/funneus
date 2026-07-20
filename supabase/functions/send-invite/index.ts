@@ -93,7 +93,8 @@ serve(async (req) => {
 
     const roleLabel = role === "view" ? "Visualizar" : "Editar";
     const base = (origin || "").replace(/\/$/, "");
-    const link = `${base}/funnel/${funnelId ?? ""}`;
+    // ?c=<email> identifica o convidado para o app aplicar Visualizar/Editar.
+    const link = `${base}/funnel/${funnelId ?? ""}?c=${encodeURIComponent(email)}`;
     const html = buildEmail(funnelName, roleLabel, link);
 
     const res = await fetch("https://api.resend.com/emails", {

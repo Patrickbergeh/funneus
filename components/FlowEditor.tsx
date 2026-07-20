@@ -19,6 +19,7 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  useStoreApi,
   type Connection,
   type ConnectionLineComponentProps,
   type Edge,
@@ -284,6 +285,7 @@ function Editor({ funnel, readOnly }: { funnel: Funnel; readOnly: boolean }) {
   );
 
   const rf = useReactFlow();
+  const store = useStoreApi();
 
   // ---- Realtime collaboration (Supabase broadcast) ----
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -600,6 +602,9 @@ function Editor({ funnel, readOnly }: { funnel: Funnel; readOnly: boolean }) {
         setNodes((nds) =>
           nds.map((n) => (n.type === "placeholder" ? n : { ...n, selected: true }))
         );
+        if (nodes.filter((n) => n.type !== "placeholder").length > 1) {
+          store.setState({ nodesSelectionActive: true });
+        }
       } else if (key === "z" && !e.shiftKey) {
         e.preventDefault();
         undo();
@@ -662,11 +667,13 @@ function Editor({ funnel, readOnly }: { funnel: Funnel; readOnly: boolean }) {
         );
         setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), ...newNodes]);
         if (newEdges.length) setEdges((eds) => [...eds, ...newEdges]);
+        // Show the draggable group box (same state as a shift-drag selection).
+        if (newNodes.length > 1) store.setState({ nodesSelectionActive: true });
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nodes, edges, readOnly, setNodes, setEdges, rf]);
+  }, [nodes, edges, readOnly, setNodes, setEdges, rf, store]);
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();

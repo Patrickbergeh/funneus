@@ -149,6 +149,27 @@ function ConnectionLine({
 let idSeq = 0;
 const nextId = () => `n_${Date.now().toString(36)}_${idSeq++}`;
 
+// ---- Undo / redo snapshots ----
+type Snap = { nodes: Node[]; edges: Edge[]; key: string };
+
+function stripFields<T extends object>(obj: T, keys: string[]): T {
+  const c = { ...obj } as Record<string, unknown>;
+  for (const k of keys) delete c[k];
+  return c as T;
+}
+
+// A committed canvas state, with volatile fields (selection/drag/measure)
+// stripped so selecting or hovering never counts as an undoable change.
+function snapshot(ns: Node[], es: Edge[]): Snap {
+  const nodes = ns
+    .filter((n) => n.type !== "placeholder")
+    .map((n) => stripFields(n, ["selected", "dragging", "measured"]));
+  const edges = es
+    .filter((e) => e.type !== "placeholder")
+    .map((e) => stripFields(e, ["selected"]));
+  return { nodes, edges, key: JSON.stringify(nodes) + "|" + JSON.stringify(edges) };
+}
+
 const GUIDE = "#f43f5e";
 
 /* Alignment / spacing guides drawn in flow coordinates while dragging. */
@@ -522,12 +543,50 @@ function Editor({ funnel, readOnly }: { funnel: Funnel; readOnly: boolean }) {
     return () => wrap.removeEventListener("mousedown", onDown, true);
   }, [rf, setNodes, readOnly]);
 
-  // Copy / paste: Ctrl/Cmd+A select all, +C copy selection (with inner edges),
-  // +V paste with an offset. Ignored while typing in a field or in read-only.
-  const clipboardRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
+  // Copy / paste + undo / redo. Ignored while typing in a field or read-only.
+  const clipboardRef = useRef<{ nodes: Node[]; edges: Edge[]; ox: number; oy: number } | null>(null);
   const pasteCountRef = useRef(0);
+  const mouseRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Undo / redo history (kept in refs to avoid re-renders).
+  const pastRef = useRef<Snap[]>([]);
+  const futureRef = useRef<Snap[]>([]);
+  const committedRef = useRef<Snap>(snapshot(funnel.nodes, funnel.edges));
+
+  // Commit a snapshot once the canvas settles (400ms), skipping selection-only
+  // changes and the states we just restored through undo/redo.
   useEffect(() => {
     if (readOnly) return;
+    const t = setTimeout(() => {
+      const snap = snapshot(nodes, edges);
+      if (snap.key === committedRef.current.key) return;
+      pastRef.current.push(committedRef.current);
+      if (pastRef.current.length > 120) pastRef.current.shift();
+      futureRef.current = [];
+      committedRef.current = snap;
+    }, 400);
+    return () => clearTimeout(t);
+  }, [nodes, edges, readOnly]);
+
+  useEffect(() => {
+    if (readOnly) return;
+
+    const applySnap = (s: Snap) => {
+      committedRef.current = s;
+      setNodes(s.nodes.map((n) => ({ ...n })));
+      setEdges(s.edges.map((e) => ({ ...e })));
+    };
+    const undo = () => {
+      if (!pastRef.current.length) return;
+      futureRef.current.push(committedRef.current);
+      applySnap(pastRef.current.pop() as Snap);
+    };
+    const redo = () => {
+      if (!futureRef.current.length) return;
+      pastRef.current.push(committedRef.current);
+      applySnap(futureRef.current.pop() as Snap);
+    };
+
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
       const t = e.target as HTMLElement | null;
@@ -541,6 +600,12 @@ function Editor({ funnel, readOnly }: { funnel: Funnel; readOnly: boolean }) {
         setNodes((nds) =>
           nds.map((n) => (n.type === "placeholder" ? n : { ...n, selected: true }))
         );
+      } else if (key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if (key === "y" || (key === "z" && e.shiftKey)) {
+        e.preventDefault();
+        redo();
       } else if (key === "c") {
         const sel = nodes.filter((n) => n.selected && n.type !== "placeholder");
         if (!sel.length) return;
@@ -550,14 +615,28 @@ function Editor({ funnel, readOnly }: { funnel: Funnel; readOnly: boolean }) {
           edges: edges
             .filter((ed) => ids.has(ed.source) && ids.has(ed.target))
             .map((ed) => ({ ...ed })),
+          ox: Math.min(...sel.map((n) => n.position.x)),
+          oy: Math.min(...sel.map((n) => n.position.y)),
         };
         pasteCountRef.current = 0;
       } else if (key === "v") {
         const clip = clipboardRef.current;
         if (!clip?.nodes.length) return;
         e.preventDefault();
-        pasteCountRef.current += 1;
-        const off = 36 * pasteCountRef.current;
+
+        // Paste anchored to the cursor (group's top-left lands there); fall
+        // back to a growing diagonal offset if the cursor isn't over the canvas.
+        let dx: number;
+        let dy: number;
+        if (mouseRef.current) {
+          const p = rf.screenToFlowPosition(mouseRef.current);
+          dx = p.x - clip.ox;
+          dy = p.y - clip.oy;
+        } else {
+          pasteCountRef.current += 1;
+          dx = dy = 36 * pasteCountRef.current;
+        }
+
         const idMap = new Map<string, string>();
         const newNodes = clip.nodes.map((n) => {
           const nid = nextId();
@@ -565,7 +644,7 @@ function Editor({ funnel, readOnly }: { funnel: Funnel; readOnly: boolean }) {
           return {
             ...n,
             id: nid,
-            position: { x: n.position.x + off, y: n.position.y + off },
+            position: { x: n.position.x + dx, y: n.position.y + dy },
             selected: true,
             dragging: false,
             data: { ...n.data },
@@ -587,7 +666,7 @@ function Editor({ funnel, readOnly }: { funnel: Funnel; readOnly: boolean }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nodes, edges, readOnly, setNodes, setEdges]);
+  }, [nodes, edges, readOnly, setNodes, setEdges, rf]);
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -677,7 +756,13 @@ function Editor({ funnel, readOnly }: { funnel: Funnel; readOnly: boolean }) {
       )}
 
       <div className="stage">
-        <div className="canvas-wrap" ref={wrapperRef}>
+        <div
+          className="canvas-wrap"
+          ref={wrapperRef}
+          onMouseMove={(e) => {
+            mouseRef.current = { x: e.clientX, y: e.clientY };
+          }}
+        >
           <ReactFlow
             nodes={nodes}
             edges={edges}

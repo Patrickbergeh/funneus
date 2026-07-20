@@ -522,6 +522,73 @@ function Editor({ funnel, readOnly }: { funnel: Funnel; readOnly: boolean }) {
     return () => wrap.removeEventListener("mousedown", onDown, true);
   }, [rf, setNodes, readOnly]);
 
+  // Copy / paste: Ctrl/Cmd+A select all, +C copy selection (with inner edges),
+  // +V paste with an offset. Ignored while typing in a field or in read-only.
+  const clipboardRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
+  const pasteCountRef = useRef(0);
+  useEffect(() => {
+    if (readOnly) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const t = e.target as HTMLElement | null;
+      const typing =
+        !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+      if (typing) return;
+      const key = e.key.toLowerCase();
+
+      if (key === "a") {
+        e.preventDefault();
+        setNodes((nds) =>
+          nds.map((n) => (n.type === "placeholder" ? n : { ...n, selected: true }))
+        );
+      } else if (key === "c") {
+        const sel = nodes.filter((n) => n.selected && n.type !== "placeholder");
+        if (!sel.length) return;
+        const ids = new Set(sel.map((n) => n.id));
+        clipboardRef.current = {
+          nodes: sel.map((n) => ({ ...n, data: { ...n.data } })),
+          edges: edges
+            .filter((ed) => ids.has(ed.source) && ids.has(ed.target))
+            .map((ed) => ({ ...ed })),
+        };
+        pasteCountRef.current = 0;
+      } else if (key === "v") {
+        const clip = clipboardRef.current;
+        if (!clip?.nodes.length) return;
+        e.preventDefault();
+        pasteCountRef.current += 1;
+        const off = 36 * pasteCountRef.current;
+        const idMap = new Map<string, string>();
+        const newNodes = clip.nodes.map((n) => {
+          const nid = nextId();
+          idMap.set(n.id, nid);
+          return {
+            ...n,
+            id: nid,
+            position: { x: n.position.x + off, y: n.position.y + off },
+            selected: true,
+            dragging: false,
+            data: { ...n.data },
+          } as Node;
+        });
+        const newEdges = clip.edges.map(
+          (ed) =>
+            ({
+              ...ed,
+              id: `e_${Date.now().toString(36)}_${idSeq++}`,
+              source: idMap.get(ed.source) ?? ed.source,
+              target: idMap.get(ed.target) ?? ed.target,
+              selected: false,
+            }) as Edge
+        );
+        setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), ...newNodes]);
+        if (newEdges.length) setEdges((eds) => [...eds, ...newEdges]);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [nodes, edges, readOnly, setNodes, setEdges]);
+
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";

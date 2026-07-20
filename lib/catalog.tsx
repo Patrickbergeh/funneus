@@ -13,6 +13,7 @@ import {
   SalesGlyph,
   VslGlyph,
   CheckoutGlyph,
+  ThanksGlyph,
   FormGlyph,
   DollarGlyph,
   CartGlyph,
@@ -43,6 +44,7 @@ export const CATALOG: CatalogItem[] = [
   { key: "sales", label: "Página de Vendas", family: "page", color: "#3b82f6", category: "Páginas", glyph: SalesGlyph, cta: "COMPRAR AGORA" },
   { key: "vsl", label: "VSL", family: "page", color: "#8b5cf6", category: "Páginas", glyph: VslGlyph, cta: "ASSISTIR" },
   { key: "checkout", label: "Checkout", family: "page", color: "#22c55e", category: "Páginas", glyph: CheckoutGlyph, cta: "FINALIZAR" },
+  { key: "obrigado", label: "Página de Obrigado", family: "page", color: "#16a34a", category: "Páginas", glyph: ThanksGlyph, cta: "ACESSAR AGORA" },
   { key: "form", label: "Formulário", family: "page", color: "#06b6d4", category: "Páginas", glyph: FormGlyph, cta: "ENVIAR" },
 
   // ---------- Tráfego (brand icon nodes) ----------

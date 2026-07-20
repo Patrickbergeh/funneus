@@ -1025,16 +1025,37 @@ input {
   margin-top: 5px;
 }
 
-/* Sales / Checkout / VSL share the exact same body height */
+/* Sales / Checkout / VSL / Obrigado share the exact same body height */
 .sales-body,
 .checkout-body,
-.vsl-body {
+.vsl-body,
+.thanks-body {
   min-height: 300px;
 }
 .sales-body .pg-cta,
 .checkout-body .pg-cta,
-.vsl-body .pg-cta {
+.vsl-body .pg-cta,
+.thanks-body .pg-cta {
   margin-top: auto;
+}
+
+/* Thank-you page — success badge, confirmation lines */
+.thanks-body {
+  gap: 8px;
+}
+.th-hero {
+  background: linear-gradient(135deg, #f0f7f1 0%, #e3efe6 100%);
+}
+.th-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.28);
+}
+.th-title {
+  margin: 0 auto;
 }
 
 /* Sales page — headline, benefits, price */

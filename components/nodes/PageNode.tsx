@@ -71,6 +71,30 @@ export default function PageNode({ id, data, selected }: NodeProps) {
         {cta}
       </div>
     );
+  } else if (item.key === "obrigado") {
+    body = (
+      <div className="page-body thanks-body">
+        <div className="pg-hero th-hero">
+          <span className="th-badge" style={{ background: item.color }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M5 12.5l4.5 4.5L19 7.5" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+        </div>
+        <div className="sl-title th-title" />
+        <div className="pg-line" style={{ width: "100%" }} />
+        <div className="pg-line" style={{ width: "68%" }} />
+        <div className="sl-benefits">
+          {["78%", "62%"].map((w, i) => (
+            <span className="sl-benefit" key={i}>
+              <span className="sl-check" style={{ background: item.color }} />
+              <span className="sl-bl" style={{ width: w }} />
+            </span>
+          ))}
+        </div>
+        {cta}
+      </div>
+    );
   } else if (item.key === "vsl") {
     body = (
       <div className="page-body vsl-body">

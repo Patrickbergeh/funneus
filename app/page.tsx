@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createFunnel, deleteFunnel, listFunnels, type Funnel } from "@/lib/store";
 import { PlusIcon, TrashIcon } from "@/lib/icons";
+import { signOut, useAuth } from "@/lib/auth";
 
 function timeAgo(ts: number) {
   const s = Math.floor((Date.now() - ts) / 1000);
@@ -18,6 +19,7 @@ function timeAgo(ts: number) {
 
 export default function HomePage() {
   const router = useRouter();
+  const { user, loading } = useAuth();
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [modal, setModal] = useState(false);
   const [name, setName] = useState("");
@@ -25,12 +27,27 @@ export default function HomePage() {
   const [toDelete, setToDelete] = useState<Funnel | null>(null);
   const [creating, setCreating] = useState(false);
 
+  // Require auth: send anyone not signed in to the login screen.
   useEffect(() => {
+    if (!loading && !user) router.replace("/login");
+  }, [loading, user, router]);
+
+  useEffect(() => {
+    if (!user) return;
     listFunnels().then((fs) => {
       setFunnels(fs);
       setReady(true);
     });
-  }, []);
+  }, [user]);
+
+  async function handleSignOut() {
+    await signOut();
+    router.replace("/login");
+  }
+
+  if (loading || !user) {
+    return <main className="home" />;
+  }
 
   async function handleCreate() {
     if (creating) return;
@@ -59,9 +76,20 @@ export default function HomePage() {
           <div>
             <h1>Seus funis</h1>
           </div>
-          <button className="btn-primary" onClick={() => setModal(true)}>
-            <PlusIcon size={18} /> Novo funil
-          </button>
+          <div className="home-actions">
+            <div className="home-user" title={user.email ?? ""}>
+              <span className="home-avatar">
+                {user.email?.[0]?.toUpperCase() ?? "?"}
+              </span>
+              <span className="home-email">{user.email}</span>
+            </div>
+            <button className="btn-ghost home-signout" onClick={handleSignOut}>
+              Sair
+            </button>
+            <button className="btn-primary" onClick={() => setModal(true)}>
+              <PlusIcon size={18} /> Novo funil
+            </button>
+          </div>
         </header>
 
         <section className="grid">

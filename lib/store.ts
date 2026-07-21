@@ -8,6 +8,7 @@ export type Funnel = {
   updatedAt: number;
   nodes: Node[];
   edges: Edge[];
+  userId: string | null;
 };
 
 type FunnelRow = {
@@ -17,6 +18,7 @@ type FunnelRow = {
   updated_at: number;
   nodes: Node[];
   edges: Edge[];
+  user_id?: string | null;
 };
 
 function rowToFunnel(r: FunnelRow): Funnel {
@@ -27,6 +29,7 @@ function rowToFunnel(r: FunnelRow): Funnel {
     updatedAt: Number(r.updated_at),
     nodes: (r.nodes ?? []) as Node[],
     edges: (r.edges ?? []) as Edge[],
+    userId: r.user_id ?? null,
   };
 }
 
@@ -58,6 +61,12 @@ export async function getFunnel(id: string): Promise<Funnel | null> {
 }
 
 export async function createFunnel(name: string): Promise<Funnel | null> {
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) {
+    console.error("createFunnel: sem sessão");
+    return null;
+  }
   const now = Date.now();
   const row: FunnelRow = {
     id: newId(),
@@ -66,6 +75,7 @@ export async function createFunnel(name: string): Promise<Funnel | null> {
     updated_at: now,
     nodes: [],
     edges: [],
+    user_id: uid,
   };
   const { data, error } = await supabase.from("funnels").insert(row).select().single();
   if (error || !data) {

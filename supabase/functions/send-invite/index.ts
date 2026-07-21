@@ -51,7 +51,8 @@ function buildEmail(funnelName: string, roleLabel: string, link: string): string
                 <h1 style="margin:22px 0 10px;font-size:24px;line-height:1.25;font-weight:600;color:#1a1f26;letter-spacing:-0.01em;">Você foi convidado para um funil</h1>
                 <p style="margin:0;font-size:15px;line-height:1.6;color:#4a545f;">
                   Você recebeu acesso para <strong style="color:#1a1f26;">${roleLabel.toLowerCase()}</strong> o funil
-                  <strong style="color:#1a1f26;">"${safeName}"</strong>. Clique no botão abaixo para abrir.
+                  <strong style="color:#1a1f26;">"${safeName}"</strong>. Entre ou crie uma conta com
+                  <strong style="color:#1a1f26;">este mesmo e-mail</strong> para acessar.
                 </p>
               </td>
             </tr>
@@ -93,8 +94,9 @@ serve(async (req) => {
 
     const roleLabel = role === "view" ? "Visualizar" : "Editar";
     const base = (origin || "").replace(/\/$/, "");
-    // ?c=<email> identifica o convidado para o app aplicar Visualizar/Editar.
-    const link = `${base}/funnel/${funnelId ?? ""}?c=${encodeURIComponent(email)}`;
+    // Acesso é por conta: a pessoa entra/cadastra com este e-mail e o RLS
+    // libera o funil conforme o papel (view/edit).
+    const link = `${base}/funnel/${funnelId ?? ""}`;
     const html = buildEmail(funnelName, roleLabel, link);
 
     const res = await fetch("https://api.resend.com/emails", {

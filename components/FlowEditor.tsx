@@ -45,6 +45,7 @@ import { computeGuides, type Guides } from "@/lib/helperLines";
 import { BackIcon, PlusIcon } from "@/lib/icons";
 import { supabase } from "@/lib/supabase";
 import { ReadOnlyContext } from "@/lib/editorMode";
+import { useAuth } from "@/lib/auth";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 const nodeTypes: NodeTypes = {
@@ -226,7 +227,15 @@ function GuidesOverlay({ guides }: { guides: Guides | null }) {
   );
 }
 
-function Editor({ funnel, readOnly }: { funnel: Funnel; readOnly: boolean }) {
+function Editor({
+  funnel,
+  readOnly,
+  isOwner,
+}: {
+  funnel: Funnel;
+  readOnly: boolean;
+  isOwner: boolean;
+}) {
   const router = useRouter();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
@@ -741,6 +750,8 @@ function Editor({ funnel, readOnly }: { funnel: Funnel; readOnly: boolean }) {
             </svg>
             Somente leitura
           </span>
+        ) : !isOwner ? (
+          <span className="view-badge">Editando (convidado)</span>
         ) : (
           <button className="share-btn" onClick={() => setShareOpen(true)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -862,43 +873,54 @@ function Editor({ funnel, readOnly }: { funnel: Funnel; readOnly: boolean }) {
 
 export default function FlowEditor({ funnelId }: { funnelId: string }) {
   const router = useRouter();
+  const { user, loading } = useAuth();
   const [funnel, setFunnel] = useState<Funnel | null | undefined>(undefined);
   const [readOnly, setReadOnly] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+
+  // Require auth.
+  useEffect(() => {
+    if (!loading && !user) router.replace("/login");
+  }, [loading, user, router]);
 
   useEffect(() => {
+    if (!user) return;
     let alive = true;
     (async () => {
       const f = await getFunnel(funnelId);
       if (!alive) return;
       setFunnel(f);
-      // A guest opens via ?c=<email>. Their role (view/edit) comes from the DB.
-      // No ?c= → treated as the owner (full edit). Real per-user enforcement
-      // will come with authentication.
-      const guest = new URLSearchParams(window.location.search)
-        .get("c")
-        ?.trim()
-        .toLowerCase();
-      if (guest && f) {
+      if (!f) return;
+      // Owner → full edit. Otherwise the role comes from funnel_shares
+      // (matched by the signed-in e-mail); RLS enforces the same at the DB.
+      if (f.userId && f.userId === user.id) {
+        setIsOwner(true);
+        setReadOnly(false);
+      } else {
         const shares = await getShares(funnelId);
-        const mine = shares.find((s) => s.email === guest);
-        // Unknown/revoked guest → safest is read-only.
-        if (alive) setReadOnly((mine?.role ?? "view") === "view");
+        const mine = shares.find(
+          (s) => s.email.toLowerCase() === user.email?.toLowerCase()
+        );
+        if (alive) {
+          setIsOwner(false);
+          setReadOnly((mine?.role ?? "view") === "view");
+        }
       }
     })();
     return () => {
       alive = false;
     };
-  }, [funnelId]);
+  }, [funnelId, user]);
 
   const content = useMemo(() => {
-    if (funnel === undefined) return null;
+    if (loading || !user || funnel === undefined) return null;
     if (funnel === null) {
       return (
         <div className="home">
           <div className="home-inner">
-            <h1 style={{ fontWeight: 500 }}>Funil não encontrado</h1>
+            <h1 style={{ fontWeight: 500 }}>Funil indisponível</h1>
             <p style={{ color: "var(--ink-2)", marginTop: 8 }}>
-              Ele pode ter sido removido.
+              Ele pode ter sido removido, ou você não tem acesso a ele.
             </p>
             <button
               className="btn-primary"
@@ -913,10 +935,10 @@ export default function FlowEditor({ funnelId }: { funnelId: string }) {
     }
     return (
       <ReactFlowProvider>
-        <Editor funnel={funnel} readOnly={readOnly} />
+        <Editor funnel={funnel} readOnly={readOnly} isOwner={isOwner} />
       </ReactFlowProvider>
     );
-  }, [funnel, router, readOnly]);
+  }, [funnel, router, readOnly, isOwner, loading, user]);
 
   return content;
 }

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createFunnel, deleteFunnel, listFunnels, type Funnel } from "@/lib/store";
 import { PlusIcon, TrashIcon } from "@/lib/icons";
-import { signOut, useAuth } from "@/lib/auth";
+import { useAuth } from "@/lib/auth";
+import UserMenu from "@/components/UserMenu";
 
 function timeAgo(ts: number) {
   const s = Math.floor((Date.now() - ts) / 1000);
@@ -40,11 +41,6 @@ export default function HomePage() {
     });
   }, [user]);
 
-  async function handleSignOut() {
-    await signOut();
-    router.replace("/login");
-  }
-
   if (loading || !user) {
     return <main className="home" />;
   }
@@ -77,18 +73,10 @@ export default function HomePage() {
             <h1>Seus funis</h1>
           </div>
           <div className="home-actions">
-            <div className="home-user" title={user.email ?? ""}>
-              <span className="home-avatar">
-                {user.email?.[0]?.toUpperCase() ?? "?"}
-              </span>
-              <span className="home-email">{user.email}</span>
-            </div>
-            <button className="btn-ghost home-signout" onClick={handleSignOut}>
-              Sair
-            </button>
             <button className="btn-primary" onClick={() => setModal(true)}>
               <PlusIcon size={18} /> Novo funil
             </button>
+            <UserMenu email={user.email ?? ""} />
           </div>
         </header>
 
